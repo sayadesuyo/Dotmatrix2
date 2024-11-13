@@ -1,38 +1,58 @@
-import pandas as pd
-
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier,AdaBoostClassifier
-from sklearn.neural_network import MLPClassifier
-
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import confusion_matrix
-
-df=pd.read_csv("Web顧客別データ.xlsx")
-
-num_att=["年齢","前回購入からの日数"]
-cat_att=["性別"]
-
-cat_onehot=pd.get_dummies(df[cat_att],dtype=int)
+from Bio import SeqIO
+import numpy as np
+import matplotlib.pyplot as plt
+import streamlit as st
+from io import StringIO
 
 
-X=pd.concat([df[num_att],cat_onehot],axis=1)
-Y=df["休眠顧客化"]
-
-X_train,X_test,Y_train,Y_test=train_test_split(X,Y,test_size=0.25,random_state=0)
-
-model=DecisionTreeClassifier(max_depth=30,random_state=0)
-#random_state=0　：　ランダムでも同じランダムになる
-
-model.fit(X_train,Y_train)
-Y_pred=model.predict(X_test)
+def dotmatrix(f1,f2,win):
+    record1=next(SeqIO.parse(f1,"fasta"))
+    record2=next(SeqIO.parse(f2,"fasta"))
 
 
-tn,fp,fn,tp=confusion_matrix(Y_test,Y_pred,labels=[False,True]).ravel()
+    Seq1 =record1.seq
+    Seq2 =record2.seq
 
-accuracy=(tp+tn)/(tn+fp+fn+tp)
 
-precision=tp/(tp+fp)
+    len1 = len(Seq1)-win+1
+    len2 = len(Seq2)-win+1
 
-recall=tp/(tp+fn)
+    width = 500
+    height = 500
 
-flscore=2*precision*recall/(precision+recall)
+    image = np.zeros((height,width))
+
+
+    hash = {}
+    for x in range(len(Seq1)-win+1):
+        sub1 = Seq1[x:x+win]
+        if sub1 not in hash:
+            hash[sub1]=[]
+        hash[sub1].append(x)
+    for y in range(len2):
+        sub2 = Seq2[y:y+win]
+        py = int(y/len2*height)
+        if sub2 in hash:
+            for x in hash[sub2]:
+                px = int(x/len1*width)
+                image[py,px] = 1
+
+    plt.imshow(image,extent=(1,len1,len2,1),cmap="Grays")
+    st.pyplot(plt)
+
+
+st.title("Dot matrix")
+
+
+file1=st.sidebar.file_uploader("Sequence file 1:")
+file2=st.sidebar.file_uploader("Sequence file 2:")
+
+win = st.sidebar.slider("Window size:",4,100,10)
+
+
+from io import StringIO
+
+if file1 and file2:
+    with StringIO(file1.getvalue().decode("utf-8")) as f1,\
+        StringIO(file2.getvalue().decode("utf-8")) as f2:
+        dotmatrix(f1,f2,win)
